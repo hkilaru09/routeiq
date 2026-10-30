@@ -1,0 +1,25 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "routeiq.name" . }}
+  labels: {{- include "routeiq.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "routeiq.name" . }}-api, port: { name: http } }
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "routeiq.name" . }}-api, port: { name: http } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "routeiq.name" . }}-dashboard, port: { name: http } }
+{{- end }}

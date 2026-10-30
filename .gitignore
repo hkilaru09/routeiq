@@ -1,0 +1,10 @@
+service/target/
+dashboard/node_modules/
+dashboard/dist/
+replay/data/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
+*.iml

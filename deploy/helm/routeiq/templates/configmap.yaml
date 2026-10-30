@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "routeiq.name" . }}
+  labels: {{- include "routeiq.labels" . | nindent 4 }}
+data:
+  DATABASE_URL: {{ .Values.database.url | quote }}
+  DATABASE_USER: {{ .Values.database.username | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
+  REDIS_HOST: {{ .Values.redis.host | quote }}
+  REDIS_PORT: {{ .Values.redis.port | quote }}
+  SMTP_HOST: {{ .Values.smtp.host | quote }}
+  SMTP_PORT: {{ .Values.smtp.port | quote }}
+  TRACING_EXPORT_ENABLED: {{ .Values.tracing.enabled | quote }}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: {{ .Values.tracing.endpoint | quote }}
+  TRACING_SAMPLING_PROBABILITY: {{ .Values.tracing.samplingProbability | quote }}
+  ROUTEIQ_OUTBOX_ENABLED: "false"
+  ROUTEIQ_ROUTER_ENABLED: "false"
+  ROUTEIQ_NOTIFIER_ENABLED: "false"
+  ROUTEIQ_SLA_ENABLED: "false"
+  ROUTEIQ_BOARD_ENABLED: "false"

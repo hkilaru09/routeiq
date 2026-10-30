@@ -1,0 +1,79 @@
+# Postgres, Kafka, Redis and SMTP are expected to exist already (managed services or their own charts).
+image:
+  repository: ghcr.io/hkilaru09/routeiq-service
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+dashboardImage:
+  repository: ghcr.io/hkilaru09/routeiq-dashboard
+  tag: "0.1.0"
+
+database:
+  url: jdbc:postgresql://postgres:5432/routeiq
+  username: routeiq
+  # Name of an existing Secret with a "password" key.
+  passwordSecret: routeiq-db
+
+kafka:
+  bootstrapServers: kafka:9092
+
+redis:
+  host: redis
+  port: 6379
+
+smtp:
+  host: ""
+  port: 1025
+
+tracing:
+  enabled: false
+  endpoint: http://otel-collector:4318/v1/traces
+  samplingProbability: 0.1
+
+# One Deployment per role. Each role is the same image with different flags.
+roles:
+  api:
+    replicas: 2
+    env:
+      ROUTEIQ_OUTBOX_ENABLED: "true"
+      ROUTEIQ_BOARD_ENABLED: "true"
+    service: true
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { memory: 768Mi }
+  router:
+    replicas: 2
+    env:
+      ROUTEIQ_ROUTER_ENABLED: "true"
+      ROUTEIQ_OUTBOX_ENABLED: "true"
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { memory: 768Mi }
+  notifier:
+    replicas: 2
+    env:
+      ROUTEIQ_NOTIFIER_ENABLED: "true"
+    resources:
+      requests: { cpu: 100m, memory: 384Mi }
+      limits: { memory: 512Mi }
+  sla:
+    # Safe to run more than one: breach rows are claimed with SKIP LOCKED.
+    replicas: 1
+    env:
+      ROUTEIQ_SLA_ENABLED: "true"
+      ROUTEIQ_OUTBOX_ENABLED: "true"
+    resources:
+      requests: { cpu: 100m, memory: 384Mi }
+      limits: { memory: 512Mi }
+
+dashboard:
+  enabled: true
+  replicas: 1
+
+ingress:
+  enabled: false
+  className: nginx
+  host: routeiq.example.com
+
+serviceMonitor:
+  enabled: false
