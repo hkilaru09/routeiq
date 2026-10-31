@@ -1,11 +1,18 @@
 # RouteIQ
 
+[![CI](https://github.com/hkilaru09/routeiq/actions/workflows/ci.yml/badge.svg)](https://github.com/hkilaru09/routeiq/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Event-driven issue routing and SLA platform. Issues come in over a REST API, a rules engine assigns each one to a
 team, workers notify the team by email and webhook, and a scheduler escalates anything that misses its SLA. A React
 dashboard shows the board live over WebSocket and lets you edit routing rules.
 
 Two tenants are fed from real public data: the **CFPB Consumer Complaint Database** and **NYC 311 Service
 Requests** (Socrata). A replay producer streams historical records into the API at 1×, 10×, 100× (or any) real time.
+
+New here and want to help? See [Contributing](#contributing): there are small, self-contained tasks in Java,
+TypeScript, Python and Helm.
 
 ## Architecture
 
@@ -255,6 +262,27 @@ traces (see the roadmap).
 - Rules with several conditions (AND/OR) instead of one field per rule.
 - Publish images to GHCR from CI and run the Helm chart against kind in CI.
 - A sustained-load benchmark on dedicated hardware rather than a laptop.
+
+## Contributing
+
+Contributions are welcome, including bug reports, docs fixes and questions. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+running each part from source, the test suites and the conventions. Good places to start:
+
+| Task | Area | Size |
+|---|---|---|
+| Add a `NOT_CONTAINS` rule operator (`RuleEngine`, a new Flyway migration for the `CHECK` constraint, the rule editor's operator list, tests) | Java, SQL, TS | Small |
+| Show an issue's audit trail and notifications when a card is clicked (`GET /api/tenants/{t}/issues/{id}` already returns them) | TypeScript | Small |
+| Add a `--dry-run` flag to `replay.py` that prints what would be sent without calling the API | Python | Small |
+| Publish the service and dashboard images to GHCR from CI on pushes to `main` | GitHub Actions | Medium |
+| Install the Helm chart into a kind cluster in CI | Helm, CI | Medium |
+| Carry `traceparent` through the outbox so one trace spans ingest to delivery | Java | Medium |
+
+Larger items are in the [roadmap](#roadmap); please open an issue to discuss one before starting. Everyone taking part
+is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE)
 
 ## Data sources
 

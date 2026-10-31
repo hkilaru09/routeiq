@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contributing guide
+    url: https://github.com/hkilaru09/routeiq/blob/main/CONTRIBUTING.md
+    about: Setup, tests and conventions. Start here if you want to send a pull request.
