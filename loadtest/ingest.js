@@ -1,5 +1,6 @@
 // Constant-arrival-rate load on the ingest endpoint.
-//   k6 run -e RATE=200 -e DURATION=2m loadtest/ingest.js
+//   k6 run -e RATE=200 -e DURATION=2m -e RUN=r200 loadtest/ingest.js
+// Then: psql -v run=r200 -f loadtest/pipeline_latency.sql
 // Each request uses a fresh idempotency key; DUPLICATE_RATIO of requests reuse an earlier key to exercise dedup.
 import http from 'k6/http'
 import { check } from 'k6'
@@ -9,8 +10,12 @@ const BASE = __ENV.BASE_URL || 'http://localhost:8080'
 const RATE = Number(__ENV.RATE || 100)
 const DURATION = __ENV.DURATION || '1m'
 const DUPLICATE_RATIO = Number(__ENV.DUPLICATE_RATIO || 0.05)
+const RUN = __ENV.RUN || 'run'
 
 const replayed = new Counter('idempotent_replays')
+
+// 422 is the correct answer when a reused key arrives with a different body, so it is not a failure.
+http.setResponseCallback(http.expectedStatuses(200, 201, 422))
 
 export const options = {
   scenarios: {
@@ -42,7 +47,7 @@ export default function () {
   const sample = SAMPLES[Math.floor(Math.random() * SAMPLES.length)]
   const duplicate = __ITER > 10 && Math.random() < DUPLICATE_RATIO
   const iteration = duplicate ? Math.floor(Math.random() * __ITER) : __ITER
-  const key = `k6-${__VU}-${iteration}`
+  const key = `k6-${RUN}-${__VU}-${iteration}`
   const body = JSON.stringify({ externalId: key, title: sample.title, category: sample.category, attributes: sample.attributes })
   const response = http.post(`${BASE}/api/tenants/${sample.tenant}/issues`, body, {
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `${sample.tenant}-${key}` },

@@ -16,7 +16,7 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
 /**
- * Consumes {@code issues.created}. Failures go to {@code issues.created-retry-N} with exponential backoff and then
+ * Consumes {@code issues.created}. Failures go to {@code issues.created-retry-<delayMs>} with exponential backoff and then
  * to {@code issues.created-dlt}. Malformed messages and unknown issues skip the retries.
  */
 @Component

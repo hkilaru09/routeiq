@@ -60,7 +60,7 @@ public class NotificationWorker {
             backoff = @Backoff(delayExpression = "${routeiq.kafka.retry-delay-ms:500}", multiplier = 2.0),
             exclude = {Json.MalformedMessageException.class, RoutingService.IssueNotFoundException.class})
     @KafkaListener(topics = Topics.NOTIFICATIONS, groupId = "routeiq-notifier",
-            concurrency = "${routeiq.notifier.concurrency:3}")
+            concurrency = "${routeiq.notifier.concurrency:6}")
     public void onNotification(String payload) {
         Messages.Notification message = json.read(payload, Messages.Notification.class);
         Issue issue = issues.find(message.issueId())

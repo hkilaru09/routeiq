@@ -20,6 +20,7 @@ x-env: &env
   SMTP_PORT: "1025"
   DATABASE_POOL_SIZE: "10"
   TRACING_EXPORT_ENABLED: ${TRACING_EXPORT_ENABLED:-false}
+  TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
   # Every process starts with all roles off; each service turns on its own.
   ROUTEIQ_OUTBOX_ENABLED: "false"
@@ -90,6 +91,7 @@ services:
       ROUTEIQ_ROLE: api
       ROUTEIQ_OUTBOX_ENABLED: "true"
       ROUTEIQ_BOARD_ENABLED: "true"
+    mem_limit: 768m
     ports: ["8080:8080"]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /actuator/health/readiness HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
@@ -146,6 +148,10 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.71.0
     profiles: [observability]
+    restart: unless-stopped
+    # In-memory storage; cap it so a load test cannot exhaust the Docker VM.
+    command: ["--memory.max-traces=20000"]
+    mem_limit: 512m
     ports: ["16686:16686"]
 
 volumes:

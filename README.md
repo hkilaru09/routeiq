@@ -31,7 +31,7 @@ flowchart LR
         created[[issues.created]]
         routed[[issues.routed]]
         notif[[notifications]]
-        retry[[*-retry-N]]
+        retry[[*-retry-*]]
         dlt[[*-dlt]]
     end
 
@@ -177,7 +177,63 @@ both images.
 
 ## Benchmarks
 
-BENCHMARKS_PLACEHOLDER
+Everything below was measured on one laptop. Treat it as a sanity check of the design, not a capacity figure.
+
+**Setup.** Apple M2 Mac, 8 GB RAM. Docker Desktop VM with 8 vCPUs and 3.8 GB memory. The whole compose
+stack ran on that VM: Postgres, single-broker Kafka, Redis, Mailpit, a webhook echo server, and one container each for
+api, router, notifier and sla. The observability profile was off. k6 ran on the host. Each rate ran for 60 seconds
+after a 20 s warm-up, starting from a fresh database, and the pipeline was fully drained between rates. Every issue
+fans out to an email and a webhook.
+
+**Method.** [`loadtest/ingest.js`](loadtest/ingest.js) posts at a constant arrival rate across both tenants. About 5%
+of requests reuse an earlier key to exercise idempotency. A reused key with a different body correctly gets `422`;
+that counts as expected, not as an error. Pipeline latency comes from timestamps in Postgres
+([`loadtest/pipeline_latency.sql`](loadtest/pipeline_latency.sql)):
+
+- **routed:** `issues.created_at` to `issues.routed_at`
+- **notified:** `issues.created_at` to `notifications.sent_at` for the webhook
+
+| Target rate | Achieved | HTTP failures | Ingest p50 / p95 | Routed p50 / p95 / p99 | Webhook delivered p50 / p95 / p99 | Not routed / not delivered |
+|---|---|---|---|---|---|---|
+| 100/s | 100.0/s | 0 / 6,000 | 2.5 / 8.5 ms | 23 / 49 / 65 ms | 61 / 112 / 141 ms | 0 / 0 |
+| 200/s | 200.0/s | 0 / 12,001 | 1.8 / 6.2 ms | 22 / 46 / 59 ms | 57 / 97 / 135 ms | 0 / 0 |
+| 300/s | 300.0/s | 0 / 18,000 | 2.3 / 8.7 ms | 26 / 55 / 82 ms | 67 / 143 / 278 ms | 0 / 0 |
+| 400/s | 399.6/s | 0 / 23,980 | 3.0 / 15.7 ms | 35 / 143 / 489 ms | 250 / 2,607 / 3,081 ms | 0 / 0 |
+
+**What this shows**
+
+- **Throughput:** up to 300 issues/s, the whole pipeline keeps up with sub-300 ms p99 delivery. At 400/s, ingest and
+  routing still keep up, but the notifier queues. Every notification was still delivered, but p95 delivery rose to
+  2.6 s.
+- **Duplicates and loss:** after each run, every created issue was routed and every routed issue had exactly one
+  `SENT` row per channel. The unique `(dedup_key, channel)` constraint makes duplicates impossible to store.
+- **A bottleneck found by measuring:** the notifier first ran with 3 consumer threads per listener against
+  6 partitions. It peaked at about 190 notifications/s and fell behind at 300/s. Raising it to 6 (one per partition)
+  produced the numbers above.
+- **An overload run before the fixes:** a 500/s run with 100% trace sampling exhausted the 3.8 GB Docker VM.
+  Jaeger's in-memory store was OOM-killed and Kafka stalled briefly. Compose now caps Jaeger and samples 10% of traces
+  by default. That run is not in the table.
+
+**Real-data replay.** 1,000 NYC 311 records replayed at 100× real time (146 s) gave 1,000 created, 0 errors, HTTP p50
+7.9 ms / p95 23.9 ms. Replaying the same records again returned all of them as idempotent replays with no new issues.
+
+**Not measured yet**
+
+- Behaviour when a broker or worker is killed in the middle of a run.
+- Multi-broker Kafka.
+- Horizontal scaling of the workers.
+- Any run longer than a minute per rate.
+- Anything on Kubernetes.
+
+**Observability check.** With `--profile observability`:
+
+- Prometheus scraped all four roles and the RouteIQ metrics returned data.
+- Grafana loaded the provisioned 8-panel dashboard.
+- Jaeger showed linked spans across the Kafka hops (relay → `issues.created` → router → `issues.routed` /
+  `notifications` → notifier).
+
+Trace context is not yet carried through the outbox row, so the HTTP request span and the Kafka spans are separate
+traces (see the roadmap).
 
 ## Deployment
 
@@ -188,6 +244,11 @@ BENCHMARKS_PLACEHOLDER
 
 ## Roadmap
 
+- Store the W3C `traceparent` on each outbox row so one trace spans HTTP ingest through notification delivery.
+- Send a notification's channels in parallel, and measure with more notifier replicas (the current single-node ceiling
+  is the notifier).
+- Fault-injection runs (kill the router or broker mid-load) to check the no-loss claim under failure, not just under
+  load.
 - Multi-level escalation (escalate again, to a different team, after a second deadline).
 - Per-tenant API authentication and rate limiting.
 - Business-hours SLA calendars.
